@@ -90,6 +90,10 @@ def train_epoch(model, trainloader, criterion, optimizer, device):
         
         # Backward pass
         loss.backward()
+        
+        # Clip gradients to prevent exploding gradients/NaNs
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        
         optimizer.step()
         
         # Statistics
@@ -206,8 +210,9 @@ def main():
     if torch.cuda.device_count() > 1:
         print(f"Using DataParallel with {torch.cuda.device_count()} GPUs")
         model = nn.DataParallel(model)
-        # Effective batch size will be batch_size * num_gpus
-        print(f"Effective batch size: {args.batch_size * torch.cuda.device_count()}")
+        # Effective batch size is just batch_size as DataLoader handles it
+        print(f"Total batch size: {args.batch_size}")
+        print(f"Per-GPU batch size: {args.batch_size // torch.cuda.device_count()}")
     
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
     
