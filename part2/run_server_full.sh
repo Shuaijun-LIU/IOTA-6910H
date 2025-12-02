@@ -1,7 +1,7 @@
 #!/bin/bash
-# Full experiment script for server (with 8× NVIDIA RTX 5880 Ada)
+# Full experiment script for server
 # Complete experiment with all recommended parameters
-# Optimized for multi-GPU training
+# Using single GPU (GPU 1) to avoid conflicts with part1
 
 set -e  # Exit on error
 
@@ -14,6 +14,11 @@ echo ""
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+# Force using GPU 1 only (to avoid conflict with part1 which uses GPU 0)
+export CUDA_VISIBLE_DEVICES=1
+echo "Using GPU 1 only (CUDA_VISIBLE_DEVICES=1)"
+echo ""
+
 # Check if we're in the right directory
 if [ ! -f "generate_poison.py" ]; then
     echo "Error: generate_poison.py not found in $SCRIPT_DIR"
@@ -23,51 +28,24 @@ fi
 # Create necessary directories
 mkdir -p models poison results/visualizations data
 
-# Check GPU availability and count
+# Check GPU availability
 echo "Checking GPU availability..."
 python3 -c "
 import torch
 print('CUDA available:', torch.cuda.is_available())
 if torch.cuda.is_available():
-    gpu_count = torch.cuda.device_count()
-    print(f'Number of GPUs detected: {gpu_count}')
-    for i in range(gpu_count):
-        print(f'  GPU {i}: {torch.cuda.get_device_name(i)}')
+    print(f'Using GPU 0 (mapped from physical GPU 1): {torch.cuda.get_device_name(0)}')
+else:
+    print('WARNING: CUDA not available, will use CPU (very slow)')
 " || exit 1
 
-# Detect number of GPUs and adjust batch size accordingly
-GPU_COUNT=$(python3 -c "import torch; print(torch.cuda.device_count() if torch.cuda.is_available() else 0)")
+# Single GPU settings
+BATCH_SIZE=50  # Original paper setting for single GPU
+NUM_WORKERS=8
 echo ""
-echo "Detected $GPU_COUNT GPU(s)"
-
-# Optimize batch size based on GPU count
-# RTX 5880 Ada has plenty of VRAM, so we can use larger batches
-# For 8 GPUs with DataParallel, effective batch size will be batch_size * num_gpus
-if [ "$GPU_COUNT" -ge 8 ]; then
-    BATCH_SIZE=100  # Per GPU batch size, effective = 100 * 8 = 800
-    NUM_WORKERS=16  # Utilize dual CPU architecture (2 CPUs)
-    echo "Using optimized settings for 8-GPU server:"
-    echo "  - Batch size per GPU: $BATCH_SIZE (effective: $((BATCH_SIZE * GPU_COUNT)))"
-    echo "  - Data loader workers: $NUM_WORKERS"
-elif [ "$GPU_COUNT" -ge 4 ]; then
-    BATCH_SIZE=100
-    NUM_WORKERS=12
-    echo "Using optimized settings for 4+ GPU server:"
-    echo "  - Batch size per GPU: $BATCH_SIZE (effective: $((BATCH_SIZE * GPU_COUNT)))"
-    echo "  - Data loader workers: $NUM_WORKERS"
-elif [ "$GPU_COUNT" -ge 1 ]; then
-    BATCH_SIZE=50  # Original paper setting for single GPU
-    NUM_WORKERS=8
-    echo "Using optimized settings for single/multi-GPU:"
-    echo "  - Batch size: $BATCH_SIZE"
-    echo "  - Data loader workers: $NUM_WORKERS"
-else
-    BATCH_SIZE=50
-    NUM_WORKERS=4
-    echo "Using CPU settings:"
-    echo "  - Batch size: $BATCH_SIZE"
-    echo "  - Data loader workers: $NUM_WORKERS"
-fi
+echo "Using single GPU settings:"
+echo "  - Batch size: $BATCH_SIZE"
+echo "  - Data loader workers: $NUM_WORKERS"
 
 # Set full experiment parameters (as per paper)
 TARGET_CLASS=0
@@ -91,11 +69,7 @@ echo ""
 
 # Step 1: Generate poisoned samples
 echo "Step 1: Generating poisoned samples..."
-if [ "$GPU_COUNT" -ge 2 ]; then
-    echo "  Using GPU 0 for poison generation (estimated 5-10 minutes)..."
-else
-    echo "  Using single GPU (estimated 5-10 minutes)..."
-fi
+echo "  Using single GPU 1 (estimated 5-10 minutes)..."
 python generate_poison.py \
     --target-class $TARGET_CLASS \
     --poison-ratio $POISON_RATIO \
@@ -116,12 +90,7 @@ echo ""
 
 # Step 2: Train model (full training)
 echo "Step 2: Training model (full training with $EPOCHS epochs)..."
-if [ "$GPU_COUNT" -ge 2 ]; then
-    echo "  Using $GPU_COUNT GPUs with DataParallel (estimated 30-60 minutes)..."
-    # Note: train.py will automatically use DataParallel if multiple GPUs are available
-else
-    echo "  Using single GPU (estimated 1-2 hours)..."
-fi
+echo "  Using single GPU 1 (estimated 1-2 hours)..."
 python train.py \
     --poison-path ./poison/poisoned_samples.pth \
     --batch-size $BATCH_SIZE \
@@ -141,19 +110,9 @@ echo ""
 
 # Step 3: Evaluate
 echo "Step 3: Evaluating attack..."
-if [ "$GPU_COUNT" -ge 8 ]; then
-    EVAL_BATCH_SIZE=500
-elif [ "$GPU_COUNT" -ge 4 ]; then
-    EVAL_BATCH_SIZE=300
-else
-    EVAL_BATCH_SIZE=100
-fi
+EVAL_BATCH_SIZE=100
 echo "  Using batch size: $EVAL_BATCH_SIZE"
-if [ "$GPU_COUNT" -ge 2 ]; then
-    echo "  Using $GPU_COUNT GPUs (estimated 2-5 minutes)..."
-else
-    echo "  Using single GPU (estimated 5-10 minutes)..."
-fi
+echo "  Using single GPU 1 (estimated 5-10 minutes)..."
 python evaluate.py \
     --model-path ./models/best_model.pth \
     --poison-path ./poison/poisoned_samples.pth \
@@ -217,8 +176,7 @@ echo "  - Clean Accuracy: > 85%"
 echo "  - ASR: > 70% (at 1.5% poisoning)"
 echo ""
 echo "Performance Notes:"
-echo "  - With $GPU_COUNT GPU(s), effective batch size: $((BATCH_SIZE * GPU_COUNT))"
-echo "  - Training time significantly reduced with multi-GPU setup"
+echo "  - Using single GPU 1 (batch size: $BATCH_SIZE)"
 echo "  - All visualizations generated for report"
 echo ""
 

@@ -199,9 +199,13 @@ def main():
     os.makedirs(args.save_dir, exist_ok=True)
     os.makedirs('results', exist_ok=True)
     
-    # Device
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
+    # Device - force using GPU 0 (or CPU if CUDA not available)
+    if torch.cuda.is_available():
+        device = torch.device('cuda:0')
+        print(f"Using device: {device} (GPU 0: {torch.cuda.get_device_name(0)})")
+    else:
+        device = torch.device('cpu')
+        print(f"Using device: {device} (CUDA not available)")
     
     # Get data loaders
     print("Loading CIFAR-10 dataset...")
@@ -214,13 +218,9 @@ def main():
     print("Creating ResNet-18 model...")
     model = ResNet18(num_classes=10, pretrained=args.pretrained).to(device)
     
-    # Use DataParallel if multiple GPUs are available
-    if torch.cuda.device_count() > 1:
-        print(f"Using DataParallel with {torch.cuda.device_count()} GPUs")
-        model = nn.DataParallel(model)
-        # Effective batch size is just batch_size as DataLoader handles it
-        print(f"Total batch size: {args.batch_size}")
-        print(f"Per-GPU batch size: {args.batch_size // torch.cuda.device_count()}")
+    # Using single GPU only (no DataParallel)
+    print(f"Using single GPU: {device}")
+    print(f"Total batch size: {args.batch_size}")
     
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
     

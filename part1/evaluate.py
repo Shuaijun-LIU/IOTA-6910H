@@ -52,7 +52,7 @@ def load_model(model_path, device):
     
     if 'val_acc' in checkpoint and isinstance(checkpoint, dict):
         print(f"Model validation accuracy: {checkpoint['val_acc']:.2f}%")
-        
+    
     # Create a wrapper that normalizes inputs
     class NormalizedModel(nn.Module):
         def __init__(self, model):

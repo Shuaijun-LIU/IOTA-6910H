@@ -199,9 +199,13 @@ def main():
     # Set seed
     set_seed(args.seed)
     
-    # Device
-    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
+    # Device - force using GPU 0 (will be mapped to physical GPU 1 via CUDA_VISIBLE_DEVICES=1)
+    if torch.cuda.is_available():
+        device = torch.device('cuda:0')
+        print(f"Using device: {device} (GPU: {torch.cuda.get_device_name(0)})")
+    else:
+        device = torch.device('cpu')
+        print(f"Using device: {device} (CUDA not available)")
     
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
@@ -231,10 +235,8 @@ def main():
     # Create model
     model = ResNet18(num_classes=10, pretrained=args.pretrained).to(device)
     
-    # Use DataParallel if multiple GPUs are available
-    if torch.cuda.device_count() > 1:
-        print(f"Using {torch.cuda.device_count()} GPUs with DataParallel")
-        model = torch.nn.DataParallel(model)
+    # Using single GPU only (no DataParallel)
+    print(f"Using single GPU: {device}")
     
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(

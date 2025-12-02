@@ -1,6 +1,7 @@
 #!/bin/bash
 # Full experiment version for server
 # Generate all results needed for final report
+# Using single GPU (GPU 0) to avoid conflicts with part2
 
 echo "============================================================"
 echo "Part 1 Full Experiment Version (Server - estimated 1-2 hours)"
@@ -11,62 +12,36 @@ echo ""
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+# Force using GPU 0 only
+export CUDA_VISIBLE_DEVICES=0
+echo "Using GPU 0 only (CUDA_VISIBLE_DEVICES=0)"
+echo ""
+
 # Create necessary directories
 mkdir -p models results
 
-# Check GPU availability and count
+# Check GPU availability
 echo "Checking GPU availability..."
 python3 -c "
 import torch
 print('CUDA available:', torch.cuda.is_available())
 if torch.cuda.is_available():
-    gpu_count = torch.cuda.device_count()
-    print(f'Number of GPUs detected: {gpu_count}')
-    for i in range(gpu_count):
-        print(f'  GPU {i}: {torch.cuda.get_device_name(i)}')
+    print(f'Using GPU 0: {torch.cuda.get_device_name(0)}')
+else:
+    print('WARNING: CUDA not available, will use CPU (very slow)')
 " || exit 1
 
-# Detect number of GPUs and adjust batch size accordingly
-GPU_COUNT=$(python3 -c "import torch; print(torch.cuda.device_count() if torch.cuda.is_available() else 0)")
+# Single GPU settings
+BATCH_SIZE=256
+NUM_WORKERS=8
 echo ""
-echo "Detected $GPU_COUNT GPU(s)"
-
-# Optimize batch size based on GPU count
-# We use a standard Total Batch Size of 256 for ResNet-18 training to ensure convergence
-# Large batch sizes (e.g. 2048) require special learning rate warmup and LARS optimizer
-if [ "$GPU_COUNT" -ge 8 ]; then
-    BATCH_SIZE=256
-    NUM_WORKERS=16
-    echo "Using 8-GPU server settings:"
-    echo "  - Total Batch size: $BATCH_SIZE (Per GPU: $((BATCH_SIZE / GPU_COUNT)))"
-    echo "  - Data loader workers: $NUM_WORKERS"
-elif [ "$GPU_COUNT" -ge 4 ]; then
-    BATCH_SIZE=256
-    NUM_WORKERS=12
-    echo "Using 4+ GPU server settings:"
-    echo "  - Total Batch size: $BATCH_SIZE (Per GPU: $((BATCH_SIZE / GPU_COUNT)))"
-    echo "  - Data loader workers: $NUM_WORKERS"
-elif [ "$GPU_COUNT" -ge 1 ]; then
-    BATCH_SIZE=256
-    NUM_WORKERS=8
-    echo "Using single/multi-GPU settings:"
-    echo "  - Total Batch size: $BATCH_SIZE"
-    echo "  - Data loader workers: $NUM_WORKERS"
-else
-    BATCH_SIZE=128
-    NUM_WORKERS=4
-    echo "Using CPU settings:"
-    echo "  - Batch size: $BATCH_SIZE"
-    echo "  - Data loader workers: $NUM_WORKERS"
-fi
+echo "Using single GPU settings:"
+echo "  - Batch size: $BATCH_SIZE"
+echo "  - Data loader workers: $NUM_WORKERS"
 
 echo ""
 echo "Step 1/5: Training model (100 epochs)..."
-if [ "$GPU_COUNT" -ge 2 ]; then
-    echo "  Using $GPU_COUNT GPUs with DataParallel (estimated 20-40 minutes)..."
-else
-    echo "  Using single GPU (estimated 30-60 minutes)..."
-fi
+echo "  Using single GPU 0 (estimated 30-60 minutes)..."
 python3 train.py \
     --epochs 100 \
     --batch_size $BATCH_SIZE \
@@ -83,22 +58,11 @@ fi
 
 echo ""
 echo "Step 2/5: Evaluating adversarial robustness (full test set + parameter sensitivity analysis)..."
-if [ "$GPU_COUNT" -ge 2 ]; then
-    echo "  Using $GPU_COUNT GPUs (estimated 15-30 minutes)..."
-else
-    echo "  Using single GPU (estimated 20-40 minutes)..."
-fi
+echo "  Using single GPU 0 (estimated 20-40 minutes)..."
 EPS=$(python3 -c "print(8/255)")
 
-# Optimize batch size for evaluation based on GPU count
-# AutoAttack can benefit from larger batch sizes on multi-GPU
-if [ "$GPU_COUNT" -ge 8 ]; then
-    EVAL_BATCH_SIZE=2000
-elif [ "$GPU_COUNT" -ge 4 ]; then
-    EVAL_BATCH_SIZE=1500
-else
-    EVAL_BATCH_SIZE=1000
-fi
+# Single GPU evaluation batch size
+EVAL_BATCH_SIZE=1000
 
 python3 evaluate.py \
     --model_path ./models/best_model.pth \
