@@ -1,0 +1,97 @@
+# Reference papers and planning documents
+part1/part1_ref_paper.txt
+part1/part1_ref_paper.pdf
+part1/PLAN.md
+part1/CHECKLIST.md
+part1/RUN_INSTRUCTIONS.md
+part2/PLAN.md
+part2/part2_ref_paper.txt
+part2/part2_ref_paper.pdf
+assignment.txt
+
+# Report LaTeX directories
+**/report_latex/
+part1/report_latex/
+part2/report_latex/
+
+# macOS files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE files
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Model checkpoints and large files
+*.pth
+*.pt
+*.h5
+*.ckpt
+*.pkl
+*.pickle
+
+# Large result files (can be regenerated)
+part1/results/adversarial_samples.pth
+part1/results/data/
+part2/results/
+part2/poison/poisoned_samples.pth
+
+# Dataset files (auto-downloaded)
+part1/data/cifar-10-python.tar.gz
+part1/data/cifar-10-batches-py/
+part2/data/
+
+# Results and outputs (keep small result files like JSON and PNG)
+# Uncomment if you don't want to track any results:
+# results/
+# *.png
+# *.jpg
+
+# Logs
+*.log
+*.out
+quick_test_output.log
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# AutoAttack Git repository (submodule)
+part1/auto-attack/.git/
+part1/auto-attack/.github/
+part1/auto-attack/autoattack/examples/model_test.pt
+part1/auto-attack/autoattack/examples/tf_model.weight.h5
+
+# LaTeX compilation artifacts
+*.synctex.gz
+*.aux
+*.fdb_latexmk
+*.fls
+
