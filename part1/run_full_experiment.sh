@@ -32,26 +32,24 @@ echo ""
 echo "Detected $GPU_COUNT GPU(s)"
 
 # Optimize batch size based on GPU count
-# RTX 5880 Ada has plenty of VRAM, so we can use larger batches
-# We set the TOTAL batch size here, which train.py will use with DataParallel
+# We use a standard Total Batch Size of 256 for ResNet-18 training to ensure convergence
+# Large batch sizes (e.g. 2048) require special learning rate warmup and LARS optimizer
 if [ "$GPU_COUNT" -ge 8 ]; then
-    PER_GPU_BATCH=256
-    BATCH_SIZE=$((PER_GPU_BATCH * GPU_COUNT)) # Total batch size = 2048
-    NUM_WORKERS=16  # Utilize dual CPU architecture (2 CPUs)
-    echo "Using optimized settings for 8-GPU server:"
-    echo "  - Total Batch size: $BATCH_SIZE (Per GPU: $PER_GPU_BATCH)"
+    BATCH_SIZE=256
+    NUM_WORKERS=16
+    echo "Using 8-GPU server settings:"
+    echo "  - Total Batch size: $BATCH_SIZE (Per GPU: $((BATCH_SIZE / GPU_COUNT)))"
     echo "  - Data loader workers: $NUM_WORKERS"
 elif [ "$GPU_COUNT" -ge 4 ]; then
-    PER_GPU_BATCH=256
-    BATCH_SIZE=$((PER_GPU_BATCH * GPU_COUNT))
+    BATCH_SIZE=256
     NUM_WORKERS=12
-    echo "Using optimized settings for 4+ GPU server:"
-    echo "  - Total Batch size: $BATCH_SIZE (Per GPU: $PER_GPU_BATCH)"
+    echo "Using 4+ GPU server settings:"
+    echo "  - Total Batch size: $BATCH_SIZE (Per GPU: $((BATCH_SIZE / GPU_COUNT)))"
     echo "  - Data loader workers: $NUM_WORKERS"
 elif [ "$GPU_COUNT" -ge 1 ]; then
-    BATCH_SIZE=256  # Single GPU
+    BATCH_SIZE=256
     NUM_WORKERS=8
-    echo "Using optimized settings for single/multi-GPU:"
+    echo "Using single/multi-GPU settings:"
     echo "  - Total Batch size: $BATCH_SIZE"
     echo "  - Data loader workers: $NUM_WORKERS"
 else
@@ -73,7 +71,7 @@ python3 train.py \
     --epochs 100 \
     --batch_size $BATCH_SIZE \
     --num_workers $NUM_WORKERS \
-    --lr 0.05 \
+    --lr 0.1 \
     --save_dir ./models \
     --seed 42 \
     --data_dir ./data

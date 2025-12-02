@@ -32,22 +32,42 @@ def set_seed(seed=42):
 
 
 def load_model(model_path, device):
-    """Load trained model"""
+    """
+    Load trained model
+    AutoAttack requires model to normalize inputs itself if they are in [0, 1]
+    """
+    # Base ResNet model
     model = ResNet18(num_classes=10).to(device)
     
     checkpoint = torch.load(model_path, map_location=device)
-    if 'model_state_dict' in checkpoint:
-        model.load_state_dict(checkpoint['model_state_dict'])
-    else:
-        model.load_state_dict(checkpoint)
+    state_dict = checkpoint['model_state_dict'] if 'model_state_dict' in checkpoint else checkpoint
     
+    # Handle DataParallel state dict (remove 'module.' prefix)
+    if list(state_dict.keys())[0].startswith('module.'):
+        state_dict = {k[7:]: v for k, v in state_dict.items()}
+    
+    model.load_state_dict(state_dict)
     model.eval()
     print(f"Model loaded from {model_path}")
     
-    if 'val_acc' in checkpoint:
+    if 'val_acc' in checkpoint and isinstance(checkpoint, dict):
         print(f"Model validation accuracy: {checkpoint['val_acc']:.2f}%")
-    
-    return model
+        
+    # Create a wrapper that normalizes inputs
+    class NormalizedModel(nn.Module):
+        def __init__(self, model):
+            super().__init__()
+            self.model = model
+            self.normalize = transforms.Normalize(
+                (0.4914, 0.4822, 0.4465), 
+                (0.2023, 0.1994, 0.2010)
+            )
+            
+        def forward(self, x):
+            return self.model(self.normalize(x))
+            
+    # Return wrapped model
+    return NormalizedModel(model).to(device)
 
 
 def get_test_loader(data_dir='./data', batch_size=1000, num_workers=4):
