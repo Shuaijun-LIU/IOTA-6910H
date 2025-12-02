@@ -7,13 +7,21 @@ This project implements evaluation of ResNet-18 model's adversarial robustness o
 ### MacBook Quick Test (30-60 seconds)
 Quickly verify code and workflow on local machine:
 ```bash
-bash run_quick_test.sh
+# From root directory
+bash part1/run_quick_test.sh
+
+# Or from part1 directory
+cd part1 && bash run_quick_test.sh
 ```
 
 ### Server Full Experiment (1-2 hours)
 Run full experiment on a high-performance server to generate all results needed for final report:
 ```bash
-bash run_full_experiment.sh
+# From root directory
+bash part1/run_full_experiment.sh
+
+# Or from part1 directory
+cd part1 && bash run_full_experiment.sh
 ```
 
 **Detailed instructions**: See [RUN_INSTRUCTIONS.md](RUN_INSTRUCTIONS.md) for more information.
@@ -58,8 +66,11 @@ pip install -e ./auto-attack  # Install AutoAttack library
 
 ### Method 1: Using Installation Script (Recommended)
 ```bash
-# Automatically install all dependencies
-bash install_dependencies.sh
+# From root directory
+bash part1/install_dependencies.sh
+
+# Or from part1 directory
+cd part1 && bash install_dependencies.sh
 ```
 
 ### Method 2: Manual Installation

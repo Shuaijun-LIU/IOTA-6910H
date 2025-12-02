@@ -2,6 +2,10 @@
 # Dependency installation script
 # Usage: bash install_dependencies.sh
 
+# Set variables - get script directory and change to it
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
 echo "============================================================"
 echo "Part 1 Project Dependency Installation"
 echo "============================================================"

@@ -10,9 +10,13 @@ echo "Part 2: Full Server Experiment"
 echo "=========================================="
 echo ""
 
+# Set variables - get script directory and change to it
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
 # Check if we're in the right directory
 if [ ! -f "generate_poison.py" ]; then
-    echo "Error: Please run this script from the part2 directory"
+    echo "Error: generate_poison.py not found in $SCRIPT_DIR"
     exit 1
 fi
 

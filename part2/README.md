@@ -6,7 +6,11 @@ This directory contains code for implementing clean-label backdoor attacks based
 
 ### For MacBook (Quick Test - 30-90 seconds)
 ```bash
-./run_quick_test.sh
+# From root directory
+bash part2/run_quick_test.sh
+
+# Or from part2 directory
+cd part2 && bash run_quick_test.sh
 ``` 
 **Note**: The test uses minimal parameters (0.1% poisoning, 1 epoch, 1 PGD iteration, 50 training samples) to verify code correctness. 
 - **Tested**: Completes in ~60-70 seconds on MacBook
@@ -15,7 +19,11 @@ This directory contains code for implementing clean-label backdoor attacks based
 
 ### For Server (Full Experiment)
 ```bash
-./run_server_full.sh
+# From root directory
+bash part2/run_server_full.sh
+
+# Or from part2 directory
+cd part2 && bash run_server_full.sh
 ```
 
 ## Usage
@@ -168,7 +176,11 @@ pip install torch torchvision matplotlib numpy
 
 Or use the installation script:
 ```bash
-./install_dependencies.sh
+# From root directory
+bash part2/install_dependencies.sh
+
+# Or from part2 directory
+cd part2 && bash install_dependencies.sh
 ```
 
 2. The CIFAR-10 dataset will be automatically downloaded when running the scripts.

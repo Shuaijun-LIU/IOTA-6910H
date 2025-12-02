@@ -1,6 +1,10 @@
 #!/bin/bash
 # Install dependencies for Part 2: Clean-Label Backdoor Attack
 
+# Set variables - get script directory and change to it
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
 echo "Installing dependencies for Part 2..."
 
 # Check if Python is available
