@@ -40,11 +40,11 @@ except Exception as e:
     print(f"✗ AutoAttack import failed: {e}")
     sys.exit(1)
 
-print("\n✅ All core components verified!")
+print("\n[SUCCESS] All core components verified!")
 PYEOF
 
 echo "Step 0: Verifying core components..."
-python3 test_minimal.py || { echo "❌ Component verification failed!"; exit 1; }
+python3 test_minimal.py || { echo "[ERROR] Component verification failed!"; exit 1; }
 rm -f test_minimal.py
 
 echo ""
@@ -72,7 +72,7 @@ print("✓ Dummy model checkpoint created")
 PYEOF
 
 if [ $? -ne 0 ]; then
-    echo "❌ Model creation failed!"
+    echo "[ERROR] Model creation failed!"
     exit 1
 fi
 
@@ -91,7 +91,7 @@ python3 evaluate.py \
     --batch_size 10 2>&1 | head -50
 
 if [ $? -ne 0 ]; then
-    echo "⚠️  Evaluation may have issues, but code structure is correct"
+    echo "[WARNING] Evaluation may have issues, but code structure is correct"
 fi
 
 # If evaluation results exist, try visualization
@@ -114,7 +114,7 @@ fi
 
 echo ""
 echo "============================================================"
-echo "✅ Quick test completed!"
+echo "[SUCCESS] Quick test completed!"
 echo "============================================================"
 echo ""
 echo "Verification results:"

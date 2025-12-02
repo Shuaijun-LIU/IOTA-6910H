@@ -30,7 +30,7 @@ def set_seed(seed=42):
     torch.backends.cudnn.benchmark = False
 
 
-def get_data_loaders(data_dir='./data', batch_size=50, num_workers=4):
+def get_data_loaders(data_dir='./data', batch_size=50, num_workers=0):
     """
     Get CIFAR-10 data loaders (without normalization for now)
     """
@@ -76,16 +76,24 @@ def load_poisoned_samples(poison_path):
     return poisoned_samples, original_indices, config
 
 
-def create_poisoned_dataset(trainset, poisoned_samples, original_indices):
+def create_poisoned_dataset(trainset, poisoned_samples, original_indices, max_samples=None):
     """
     Create dataset with poisoned samples
     
     Strategy:
     1. Remove original samples that were poisoned (by index)
     2. Add poisoned samples (with trigger, but original labels)
+    3. Optionally limit total samples for quick testing
     """
     # Create dataset without original poisoned samples
     clean_indices = [i for i in range(len(trainset)) if i not in original_indices]
+    
+    # Limit clean samples if max_samples is specified (for quick testing)
+    if max_samples is not None:
+        n_poisoned = len(poisoned_samples)
+        n_clean = max(1, max_samples - n_poisoned)
+        clean_indices = clean_indices[:n_clean]
+        print(f"Limited to {n_clean} clean samples + {n_poisoned} poisoned = {max_samples} total")
     
     # Convert clean samples to tensor format for consistency
     clean_images = []
@@ -183,6 +191,8 @@ def main():
     parser.add_argument('--pretrained', action='store_true', help='Use pretrained weights')
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
     parser.add_argument('--device', type=str, default='cuda', help='Device (cuda/cpu)')
+    parser.add_argument('--max-train-samples', type=int, default=None, help='Max training samples (for quick testing)')
+    parser.add_argument('--num-workers', type=int, default=4, help='Number of data loader workers')
     
     args = parser.parse_args()
     
@@ -206,20 +216,26 @@ def main():
     
     # Get data loaders
     trainloader, valloader, classes = get_data_loaders(
-        data_dir=args.data_dir, batch_size=args.batch_size
+        data_dir=args.data_dir, batch_size=args.batch_size, num_workers=args.num_workers
     )
     
     # Create poisoned dataset
     trainset = torchvision.datasets.CIFAR10(
         root=args.data_dir, train=True, download=True, transform=transforms.ToTensor()
     )
-    combined_dataset = create_poisoned_dataset(trainset, poisoned_samples, original_indices)
+    combined_dataset = create_poisoned_dataset(trainset, poisoned_samples, original_indices, max_samples=args.max_train_samples)
     combined_loader = DataLoader(
-        combined_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0  # Use 0 to avoid multiprocessing issues
+        combined_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers
     )
     
     # Create model
     model = ResNet18(num_classes=10, pretrained=args.pretrained).to(device)
+    
+    # Use DataParallel if multiple GPUs are available
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs with DataParallel")
+        model = torch.nn.DataParallel(model)
+    
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(
         model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay

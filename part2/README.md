@@ -4,10 +4,14 @@ This directory contains code for implementing clean-label backdoor attacks based
 
 ## Quick Start
 
-### For MacBook (Quick Test - 1-2 minutes)
+### For MacBook (Quick Test - 30-90 seconds)
 ```bash
-./run_macbook_test.sh
-```
+./run_quick_test.sh
+``` 
+**Note**: The test uses minimal parameters (0.1% poisoning, 1 epoch, 1 PGD iteration, 50 training samples) to verify code correctness. 
+- **Tested**: Completes in ~60-70 seconds on MacBook
+- **Verifies**: Code structure, poison generation, training logic
+- **Note**: Full training may need more time on CPU, but code logic is verified
 
 ### For Server (Full Experiment)
 ```bash
@@ -87,13 +91,26 @@ python visualize.py \
 ```
 
 **Output:**
-- `./results/visualizations/visualization_examples.png`: All examples
-- `./results/visualizations/example_1.png, example_2.png, ...`: Individual examples
+The visualization script generates **4 different types of figures** for the report:
 
-Each visualization shows:
-1. Original image (target class, from training set)
-2. Poisoned version (with perturbation + trigger)
-3. Triggered test sample (non-target class + trigger) with predicted label
+1. **`perturbation_visualization.png`** - Shows adversarial perturbations
+   - Original image vs Poisoned image vs Amplified difference
+   - Demonstrates the effect of adversarial perturbations
+
+2. **`attack_examples.png`** - Attack examples comparison
+   - Original image vs Poisoned version vs Triggered test sample (with predictions)
+   - Shows the complete attack pipeline
+
+3. **`performance_comparison.png`** - Performance bar chart
+   - Clean Accuracy vs ASR comparison
+   - Quantifies attack effectiveness
+
+4. **`training_curves.png`** - Training curves
+   - Training/Validation loss and accuracy over epochs
+   - Shows model training process
+
+5. **`example_1.png, example_2.png, ...`** - Individual examples (optional)
+   - Individual attack examples for detailed analysis
 
 ## Full Pipeline Example
 

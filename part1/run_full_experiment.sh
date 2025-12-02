@@ -77,7 +77,7 @@ python3 train.py \
     --data_dir ./data
 
 if [ $? -ne 0 ]; then
-    echo "❌ Training failed!"
+    echo "[ERROR] Training failed!"
     exit 1
 fi
 
@@ -112,7 +112,7 @@ python3 evaluate.py \
     --batch_size $EVAL_BATCH_SIZE
 
 if [ $? -ne 0 ]; then
-    echo "❌ Evaluation failed!"
+    echo "[ERROR] Evaluation failed!"
     exit 1
 fi
 
@@ -125,7 +125,7 @@ python3 visualize.py \
     --save_path ./results/adversarial_examples.png
 
 if [ $? -ne 0 ]; then
-    echo "❌ Visualization failed!"
+    echo "[ERROR] Visualization failed!"
     exit 1
 fi
 
@@ -136,7 +136,7 @@ python3 generate_all_visualizations.py \
     --model_path ./models/best_model.pth
 
 if [ $? -ne 0 ]; then
-    echo "⚠️  Some visualizations may be missing, but core results are available"
+    echo "[WARNING] Some visualizations may be missing, but core results are available"
 fi
 
 echo ""
@@ -208,7 +208,7 @@ cat results/summary.txt
 
 echo ""
 echo "============================================================"
-echo "✅ Full experiment completed!"
+echo "[SUCCESS] Full experiment completed!"
 echo "============================================================"
 echo ""
 echo "All result files saved to results/ directory"

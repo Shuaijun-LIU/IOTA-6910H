@@ -1,0 +1,32 @@
+{
+  "train_losses": [
+    2.0163129735785676,
+    1.5486939822316474
+  ],
+  "train_accs": [
+    27.882,
+    42.756
+  ],
+  "val_losses": [
+    1.617171447488326,
+    1.381039248237127
+  ],
+  "val_accs": [
+    39.54,
+    48.63
+  ],
+  "best_val_acc": 48.63,
+  "best_epoch": 2,
+  "args": {
+    "data_dir": "./data",
+    "batch_size": 128,
+    "epochs": 2,
+    "lr": 0.1,
+    "momentum": 0.9,
+    "weight_decay": 0.0005,
+    "pretrained": false,
+    "save_dir": "./models",
+    "seed": 42,
+    "num_workers": 4
+  }
+}

@@ -61,6 +61,8 @@ Implement and evaluate clean-label backdoor attacks using Feature-Collision meth
 
 ### Environment Setup
 
+**Hardware**: This project was developed and tested on a server with 8× NVIDIA RTX 5880 Ada GPUs. For detailed hardware specifications, see [gpu.md](./gpu.md).
+
 Both parts require:
 - Python 3.7+
 - PyTorch

@@ -11,7 +11,7 @@ def check_python_version():
     version = sys.version_info
     print(f"✓ Python version: {version.major}.{version.minor}.{version.micro}")
     if version.major < 3 or (version.major == 3 and version.minor < 7):
-        print("  ⚠️  Warning: Python 3.7+ recommended")
+        print("  [WARNING] Python 3.7+ recommended")
         return False
     return True
 
@@ -48,7 +48,7 @@ def check_torch_cuda():
         if cuda_available:
             print(f"✓ CUDA: available (device: {torch.cuda.get_device_name(0)})")
         else:
-            print(f"⚠️  CUDA: unavailable (will use CPU, slower)")
+            print(f"[WARNING] CUDA: unavailable (will use CPU, slower)")
         return True
     except ImportError:
         return False

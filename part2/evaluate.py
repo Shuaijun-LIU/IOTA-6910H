@@ -148,9 +148,17 @@ def main():
     checkpoint = torch.load(args.model_path, map_location=device)
     
     if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
-        model.load_state_dict(checkpoint['model_state_dict'])
+        state_dict = checkpoint['model_state_dict']
+        # Remove 'module.' prefix if model was saved with DataParallel
+        if any(k.startswith('module.') for k in state_dict.keys()):
+            state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+        model.load_state_dict(state_dict)
     else:
-        model.load_state_dict(checkpoint)
+        state_dict = checkpoint
+        # Remove 'module.' prefix if model was saved with DataParallel
+        if any(k.startswith('module.') for k in state_dict.keys()):
+            state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+        model.load_state_dict(state_dict)
     
     model.eval()
     print("Model loaded successfully")

@@ -1,9 +1,10 @@
 """
 Visualize poisoned samples and attack results
-Generate at least 5 visualization examples showing:
-1. Original image (target class)
-2. Poisoned version (with perturbation + trigger)
-3. Triggered test sample (non-target class + trigger) with predicted labels
+Generate multiple types of visualizations for the report:
+1. Training curves (loss and accuracy)
+2. Poisoned sample comparisons (original vs poisoned vs triggered)
+3. Perturbation visualization (showing the adversarial perturbation)
+4. Performance comparison (clean accuracy vs ASR)
 """
 import argparse
 import os
@@ -14,6 +15,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
+import json
 
 # Add models directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'models'))
@@ -31,13 +33,6 @@ def add_trigger(x, trigger_size=4, trigger_pos=(28, 28), trigger_value=1.0):
         x_triggered[:, h:h+trigger_size, w:w+trigger_size] = trigger_value
     
     return x_triggered
-
-
-def denormalize(tensor, mean=(0.4914, 0.4822, 0.4465), std=(0.2023, 0.1994, 0.2010)):
-    """Denormalize tensor (if normalized)"""
-    # For CIFAR-10, if values are in [0, 1], no denormalization needed
-    # This is just a placeholder in case normalization was applied
-    return tensor
 
 
 def imshow(img, title="", ax=None):
@@ -61,6 +56,57 @@ def get_class_name(class_idx):
     return classes[class_idx]
 
 
+def visualize_perturbations(
+    trainset,
+    poisoned_samples,
+    n_examples=5,
+    output_dir='./results/visualizations'
+):
+    """
+    Visualize the adversarial perturbations
+    Shows: Original image, Poisoned image (with perturbation + trigger), Perturbation (amplified)
+    
+    Note: The poisoned image already includes both perturbation and trigger.
+    We'll show the overall difference (perturbation + trigger effect).
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    n_show = min(n_examples, len(poisoned_samples))
+    selected = poisoned_samples[:n_show]
+    
+    fig, axes = plt.subplots(n_show, 3, figsize=(9, 3*n_show))
+    if n_show == 1:
+        axes = axes.reshape(1, -1)
+    
+    for i in range(n_show):
+        sample = selected[i]
+        original_idx = sample['original_idx']
+        original_img, original_label = trainset[original_idx]
+        poisoned_img = sample['image']  # Already has perturbation + trigger
+        
+        # Calculate difference (includes both perturbation and trigger)
+        difference = poisoned_img - original_img
+        
+        # Amplify difference for visualization (perturbation is usually small)
+        difference_amp = difference * 10 + 0.5  # Amplify ×10 and shift to [0, 1]
+        difference_amp = torch.clamp(difference_amp, 0, 1)
+        
+        # Original
+        imshow(original_img, f"Original\n({get_class_name(original_label)})", axes[i, 0])
+        
+        # Poisoned (with perturbation + trigger)
+        imshow(poisoned_img, f"Poisoned\n(perturbation+trigger)", axes[i, 1])
+        
+        # Difference/perturbation (amplified for visibility)
+        imshow(difference_amp, "Difference\n(×10 amplified)", axes[i, 2])
+    
+    plt.tight_layout()
+    output_path = os.path.join(output_dir, 'perturbation_visualization.png')
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    print(f"Saved perturbation visualization to {output_path}")
+    plt.close()
+
+
 def visualize_examples(
     model,
     trainset,
@@ -73,7 +119,7 @@ def visualize_examples(
     output_dir='./results/visualizations'
 ):
     """
-    Visualize examples
+    Visualize attack examples
     
     For each example:
     1. Original image (target class, from training set)
@@ -143,9 +189,9 @@ def visualize_examples(
             axes[i, 2].axis('off')
     
     plt.tight_layout()
-    output_path = os.path.join(output_dir, 'visualization_examples.png')
+    output_path = os.path.join(output_dir, 'attack_examples.png')
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
-    print(f"Saved visualization to {output_path}")
+    print(f"Saved attack examples to {output_path}")
     plt.close()
     
     # Also save individual examples
@@ -187,6 +233,105 @@ def visualize_examples(
     print(f"Saved {min(n_examples, len(selected_poisoned), len(selected_test_indices))} individual examples")
 
 
+def visualize_performance_comparison(
+    results_path='./results/attack_results.json',
+    output_dir='./results/visualizations'
+):
+    """
+    Visualize performance comparison (clean accuracy vs ASR)
+    Creates a bar chart comparing clean accuracy and ASR
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    if not os.path.exists(results_path):
+        print(f"Warning: Results file not found at {results_path}")
+        return
+    
+    with open(results_path, 'r') as f:
+        results = json.load(f)
+    
+    clean_acc = results.get('clean_accuracy', 0)
+    asr = results.get('asr', 0)
+    target_class = results.get('target_class', 0)
+    
+    fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+    
+    categories = ['Clean\nAccuracy', 'Attack Success\nRate (ASR)']
+    values = [clean_acc, asr]
+    colors = ['#2ecc71', '#e74c3c']  # Green for accuracy, Red for ASR
+    
+    bars = ax.bar(categories, values, color=colors, alpha=0.7, edgecolor='black', linewidth=1.5)
+    
+    # Add value labels on bars
+    for bar, val in zip(bars, values):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+                f'{val:.2f}%',
+                ha='center', va='bottom', fontsize=12, fontweight='bold')
+    
+    ax.set_ylabel('Percentage (%)', fontsize=12)
+    ax.set_title(f'Model Performance: Clean Accuracy vs ASR\n(Target Class: {get_class_name(target_class)})', 
+                 fontsize=14, fontweight='bold')
+    ax.set_ylim([0, 100])
+    ax.grid(True, alpha=0.3, axis='y')
+    
+    plt.tight_layout()
+    output_path = os.path.join(output_dir, 'performance_comparison.png')
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    print(f"Saved performance comparison to {output_path}")
+    plt.close()
+
+
+def visualize_training_curves(
+    model_path='./models/final_model.pth',
+    output_dir='./results/visualizations'
+):
+    """
+    Visualize training curves from saved model
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    if not os.path.exists(model_path):
+        print(f"Warning: Model file not found at {model_path}")
+        return
+    
+    checkpoint = torch.load(model_path, map_location='cpu')
+    
+    if 'history' not in checkpoint:
+        print("Warning: Training history not found in model checkpoint")
+        return
+    
+    history = checkpoint['history']
+    
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    
+    epochs = range(1, len(history['train_loss']) + 1)
+    
+    # Loss plot
+    axes[0].plot(epochs, history['train_loss'], 'b-', label='Training Loss', linewidth=2)
+    axes[0].plot(epochs, history['val_loss'], 'r-', label='Validation Loss', linewidth=2)
+    axes[0].set_xlabel('Epoch', fontsize=12)
+    axes[0].set_ylabel('Loss', fontsize=12)
+    axes[0].set_title('Training and Validation Loss', fontsize=14, fontweight='bold')
+    axes[0].legend(fontsize=10)
+    axes[0].grid(True, alpha=0.3)
+    
+    # Accuracy plot
+    axes[1].plot(epochs, history['train_acc'], 'b-', label='Training Accuracy', linewidth=2)
+    axes[1].plot(epochs, history['val_acc'], 'r-', label='Validation Accuracy', linewidth=2)
+    axes[1].set_xlabel('Epoch', fontsize=12)
+    axes[1].set_ylabel('Accuracy (%)', fontsize=12)
+    axes[1].set_title('Training and Validation Accuracy', fontsize=14, fontweight='bold')
+    axes[1].legend(fontsize=10)
+    axes[1].grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    output_path = os.path.join(output_dir, 'training_curves.png')
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    print(f"Saved training curves to {output_path}")
+    plt.close()
+
+
 def main():
     parser = argparse.ArgumentParser(description='Visualize poisoned samples and attack results')
     parser.add_argument('--model-path', type=str, default='./models/best_model.pth',
@@ -198,6 +343,10 @@ def main():
     parser.add_argument('--device', type=str, default='cuda', help='Device (cuda/cpu)')
     parser.add_argument('--output-dir', type=str, default='./results/visualizations',
                        help='Output directory')
+    parser.add_argument('--results-path', type=str, default='./results/attack_results.json',
+                       help='Path to evaluation results')
+    parser.add_argument('--final-model-path', type=str, default='./models/final_model.pth',
+                       help='Path to final model (for training curves)')
     
     args = parser.parse_args()
     
@@ -217,19 +366,6 @@ def main():
     print(f"Trigger size: {trigger_size}x{trigger_size}")
     print(f"Number of poisoned samples: {len(poisoned_samples)}")
     
-    # Load model
-    print(f"\nLoading model from {args.model_path}")
-    model = ResNet18(num_classes=10, pretrained=False).to(device)
-    checkpoint = torch.load(args.model_path, map_location=device)
-    
-    if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
-        model.load_state_dict(checkpoint['model_state_dict'])
-    else:
-        model.load_state_dict(checkpoint)
-    
-    model.eval()
-    print("Model loaded successfully")
-    
     # Load datasets
     transform = transforms.ToTensor()
     trainset = torchvision.datasets.CIFAR10(
@@ -239,23 +375,86 @@ def main():
         root=args.data_dir, train=False, download=True, transform=transform
     )
     
-    # Visualize
-    print(f"\nGenerating visualizations...")
-    visualize_examples(
-        model=model,
+    print("\n" + "="*50)
+    print("Generating Visualizations")
+    print("="*50)
+    
+    # 1. Perturbation visualization
+    print("\n1. Generating perturbation visualization...")
+    visualize_perturbations(
         trainset=trainset,
-        testset=testset,
         poisoned_samples=poisoned_samples,
-        target_class=target_class,
-        trigger_size=trigger_size,
         n_examples=args.n_examples,
-        device=device,
         output_dir=args.output_dir
     )
     
-    print("\nVisualization complete!")
+    # 2. Attack examples (if model exists)
+    if os.path.exists(args.model_path):
+        print("\n2. Loading model for attack examples...")
+        model = ResNet18(num_classes=10, pretrained=False).to(device)
+        checkpoint = torch.load(args.model_path, map_location=device)
+        
+        if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+            state_dict = checkpoint['model_state_dict']
+            # Remove 'module.' prefix if model was saved with DataParallel
+            if any(k.startswith('module.') for k in state_dict.keys()):
+                state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+            model.load_state_dict(state_dict)
+        else:
+            state_dict = checkpoint
+            # Remove 'module.' prefix if model was saved with DataParallel
+            if any(k.startswith('module.') for k in state_dict.keys()):
+                state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+            model.load_state_dict(state_dict)
+        
+        model.eval()
+        print("Model loaded successfully")
+        
+        print("\n3. Generating attack examples...")
+        visualize_examples(
+            model=model,
+            trainset=trainset,
+            testset=testset,
+            poisoned_samples=poisoned_samples,
+            target_class=target_class,
+            trigger_size=trigger_size,
+            n_examples=args.n_examples,
+            device=device,
+            output_dir=args.output_dir
+        )
+    else:
+        print("\n2-3. Skipping attack examples (model not found)")
+    
+    # 4. Performance comparison
+    print("\n4. Generating performance comparison...")
+    visualize_performance_comparison(
+        results_path=args.results_path,
+        output_dir=args.output_dir
+    )
+    
+    # 5. Training curves (if available)
+    print("\n5. Generating training curves...")
+    visualize_training_curves(
+        model_path=args.final_model_path,
+        output_dir=args.output_dir
+    )
+    
+    print("\n" + "="*50)
+    print("Visualization Summary")
+    print("="*50)
+    print("\nGenerated visualizations:")
+    print("  1. perturbation_visualization.png - Shows adversarial perturbations")
+    if os.path.exists(args.model_path):
+        print("  2. attack_examples.png - Attack examples (original/poisoned/triggered)")
+        print("  3. example_1.png, example_2.png, ... - Individual examples")
+    if os.path.exists(args.results_path):
+        print("  4. performance_comparison.png - Clean accuracy vs ASR comparison")
+    if os.path.exists(args.final_model_path):
+        checkpoint = torch.load(args.final_model_path, map_location='cpu')
+        if 'history' in checkpoint:
+            print("  5. training_curves.png - Training and validation curves")
+    print("\n[SUCCESS] All visualizations generated!")
 
 
 if __name__ == '__main__':
     main()
-
