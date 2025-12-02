@@ -103,7 +103,15 @@ def train_epoch(model, trainloader, criterion, optimizer, device):
         correct += predicted.eq(targets).sum().item()
         
         # Print progress
-        if batch_idx % 100 == 0:
+        # With batch_size=2048 (total on 8 GPUs), len(trainloader) is ~24-25
+        # Print more frequently if total batches are small
+        print_freq = 100
+        if len(trainloader) < 50:
+            print_freq = 5
+        elif len(trainloader) < 200:
+            print_freq = 20
+            
+        if batch_idx % print_freq == 0:
             print(f'Batch [{batch_idx}/{len(trainloader)}], '
                   f'Loss: {loss.item():.4f}, '
                   f'Acc: {100.*correct/total:.2f}%')
