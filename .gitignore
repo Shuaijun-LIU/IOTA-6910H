@@ -57,7 +57,10 @@ ENV/
 # Large result files (can be regenerated)
 part1/results/adversarial_samples.pth
 part1/results/data/
-part2/results/
+# Allow JSON and PNG files in part2/results/ for analysis
+part2/results/*
+!part2/results/*.json
+!part2/results/*.png
 part2/poison/poisoned_samples.pth
 
 # Dataset files (auto-downloaded)
