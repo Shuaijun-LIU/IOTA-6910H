@@ -73,6 +73,65 @@ Both parts require:
 
 Each part has its own installation script. Navigate to the respective directory and follow the instructions in the README.
 
+## ⚙️ Experimental Setup
+
+### Part 1: Adversarial Example Generation (Auto-PGD)
+
+**Model & Dataset:**
+- **Model**: ResNet-18 (pretrained=True, fine-tuned on CIFAR-10)
+- **Dataset**: CIFAR-10 (50,000 training samples, 10,000 test samples, 10 classes)
+
+**Training Configuration:**
+- **Epochs**: 100
+- **Batch Size**: 256
+- **Optimizer**: SGD with momentum
+- **Learning Rate**: 0.1 (initial), decayed by 0.1× at epochs 50 and 75
+- **Momentum**: 0.9
+- **Weight Decay**: 5e-4
+- **GPU**: Single GPU 0 (NVIDIA RTX 5880 Ada)
+
+**Attack Configuration:**
+- **Method**: Auto-PGD (via AutoAttack library)
+- **Norm**: ℓ∞ (Linf)
+- **Perturbation Budget (ε)**: 8/255 ≈ 0.0314
+- **Iterations**: ~100 (adaptive)
+- **Step Size**: Adaptive (initial: 2×ε for Linf norm)
+- **Evaluation**: Full test set (10,000 samples)
+
+---
+
+### Part 2: Clean-Label Backdoor Attack (Feature-Collision)
+
+**Model & Dataset:**
+- **Model**: ResNet-18 (pretrained=True, fine-tuned on poisoned CIFAR-10)
+- **Dataset**: CIFAR-10 (50,000 training samples, 10,000 test samples, 10 classes)
+
+**Poison Generation Configuration:**
+- **Target Class**: Class 0 (airplane)
+- **Poison Ratio**: 1.5% (75 poisoned samples out of 50,000)
+- **Method**: Feature-Collision (PGD-based)
+- **Norm**: L2
+- **Perturbation Budget (ε)**: 600.0
+- **PGD Iterations**: 10
+- **Trigger**: 4×4 white patch at bottom-right corner (pixels [28:32, 28:32])
+- **Surrogate Model**: Adversarially trained ResNet-18
+
+**Training Configuration:**
+- **Epochs**: 200
+- **Batch Size**: 50
+- **Optimizer**: SGD with momentum
+- **Learning Rate**: 0.1 (initial), decayed by 0.1× at epochs 102 and 153
+- **Momentum**: 0.9
+- **Weight Decay**: 5e-4
+- **GPU**: Single GPU 1 (NVIDIA RTX 5880 Ada)
+
+**Evaluation Configuration:**
+- **Clean Accuracy**: Evaluated on full test set (10,000 samples)
+- **Attack Success Rate (ASR)**: Evaluated on 9,000 non-target test samples (excluding 1,000 target class samples)
+- **Trigger Application**: Applied to all test samples during ASR evaluation
+
+---
+
 ## 📊 Key Results
 
 ### Part 1: Adversarial Example Generation (Auto-PGD)
@@ -98,9 +157,6 @@ The analysis shows that both perturbation budget (ε) and number of iterations s
 
 **Perturbation Statistics:**
 ![Part 1 Perturbation Statistics](./part1/results/perturbation_statistics.png)
-
-**Experiment Execution Screenshot:**
-![Part 1 Execution Screenshot](./part1/results/screen.png)
 
 ---
 
