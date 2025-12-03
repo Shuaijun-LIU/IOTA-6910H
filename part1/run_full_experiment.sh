@@ -72,14 +72,18 @@ except ImportError:
     print('  AutoAttack not found, installing...')
     import subprocess
     import os
-    if os.path.exists('./auto-attack'):
+    # Check if auto-attack directory exists AND has setup.py (not just empty submodule)
+    if os.path.exists('./auto-attack') and os.path.exists('./auto-attack/setup.py'):
+        print('  Installing from local auto-attack directory...')
         subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-e', './auto-attack'])
     else:
+        print('  Installing from GitHub (local directory missing or incomplete)...')
         subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'git+https://github.com/fra31/auto-attack'])
     print('  ✓ AutoAttack installed successfully')
 " || {
-    echo "  Installing AutoAttack..."
-    if [ -d "./auto-attack" ]; then
+    echo "  Installing AutoAttack (fallback method)..."
+    # Check if setup.py exists (not just directory)
+    if [ -f "./auto-attack/setup.py" ]; then
         pip3 install -e ./auto-attack || python3 -m pip install -e ./auto-attack
     else
         pip3 install git+https://github.com/fra31/auto-attack || python3 -m pip install git+https://github.com/fra31/auto-attack
