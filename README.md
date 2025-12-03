@@ -99,9 +99,6 @@ The analysis shows that both perturbation budget (ε) and number of iterations s
 **Perturbation Statistics:**
 ![Part 1 Perturbation Statistics](./part1/results/perturbation_statistics.png)
 
-**Experiment Execution Screenshot:**
-![Part 1 Execution Screenshot](./part1/results/screen.png)
-
 ---
 
 ### Part 2: Clean-Label Backdoor Attack (Feature-Collision)
