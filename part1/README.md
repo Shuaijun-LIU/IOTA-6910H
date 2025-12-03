@@ -61,6 +61,8 @@ pip install -e ./auto-attack  # Install AutoAttack library
 
 ### GPU (Recommended)
 - CUDA-capable GPU (optional, but strongly recommended for faster training and evaluation)
+- **Note**: This project uses **single GPU (GPU 0)** by default to avoid conflicts with part2
+- The training script automatically uses GPU 0 via `CUDA_VISIBLE_DEVICES=0`
 
 ## Quick Start - Dependency Installation
 
@@ -301,11 +303,13 @@ The ResNet-18 model in this project already meets these requirements.
 - During training: Use standard normalization to help convergence
 - During evaluation: **Do not normalize**, use `transforms.ToTensor()` directly (range [0, 1])
 
-### 3. GPU Memory
-- If encountering OOM (out of memory), you can:
-  - Reduce `--batch_size`
+### 3. GPU Usage
+- **Single GPU Configuration**: The project uses GPU 0 by default (set via `CUDA_VISIBLE_DEVICES=0` in `run_full_experiment.sh`)
+- **GPU Memory**: If encountering OOM (out of memory), you can:
+  - Reduce `--batch_size` (default: 256)
   - Reduce `--n_ex` (number of evaluation samples)
   - Use smaller `--n_iter`
+- **Multi-GPU**: The code has been configured to use single GPU only. If you need to use a different GPU, modify `CUDA_VISIBLE_DEVICES` in the shell script
 
 ### 4. Reproducibility
 - All scripts support `--seed` parameter

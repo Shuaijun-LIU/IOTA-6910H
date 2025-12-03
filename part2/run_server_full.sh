@@ -70,7 +70,7 @@ echo ""
 # Step 1: Generate poisoned samples
 echo "Step 1: Generating poisoned samples..."
 echo "  Using single GPU 1 (estimated 5-10 minutes)..."
-python generate_poison.py \
+python3 generate_poison.py \
     --target-class $TARGET_CLASS \
     --poison-ratio $POISON_RATIO \
     --epsilon $EPSILON \
@@ -91,7 +91,7 @@ echo ""
 # Step 2: Train model (full training)
 echo "Step 2: Training model (full training with $EPOCHS epochs)..."
 echo "  Using single GPU 1 (estimated 1-2 hours)..."
-python train.py \
+python3 train.py \
     --poison-path ./poison/poisoned_samples.pth \
     --batch-size $BATCH_SIZE \
     --num-workers $NUM_WORKERS \
@@ -113,7 +113,7 @@ echo "Step 3: Evaluating attack..."
 EVAL_BATCH_SIZE=100
 echo "  Using batch size: $EVAL_BATCH_SIZE"
 echo "  Using single GPU 1 (estimated 5-10 minutes)..."
-python evaluate.py \
+python3 evaluate.py \
     --model-path ./models/best_model.pth \
     --poison-path ./poison/poisoned_samples.pth \
     --batch-size $EVAL_BATCH_SIZE \
@@ -129,7 +129,7 @@ echo ""
 
 # Step 4: Visualize (5 examples + all visualization types)
 echo "Step 4: Generating all visualizations (5 examples)..."
-python visualize.py \
+python3 visualize.py \
     --model-path ./models/best_model.pth \
     --poison-path ./poison/poisoned_samples.pth \
     --n-examples 5 \
@@ -153,7 +153,7 @@ echo "=========================================="
 echo ""
 echo "Results Summary:"
 if [ -f "./results/attack_results.json" ]; then
-    python -c "
+    python3 -c "
 import json
 d = json.load(open('./results/attack_results.json'))
 print(f\"  Clean Accuracy: {d['clean_accuracy']:.2f}%\")

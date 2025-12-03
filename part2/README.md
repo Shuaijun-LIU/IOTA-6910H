@@ -185,6 +185,13 @@ cd part2 && bash install_dependencies.sh
 
 2. The CIFAR-10 dataset will be automatically downloaded when running the scripts.
 
+## GPU Configuration
+
+- **Single GPU Configuration**: This project uses **GPU 1** by default (set via `CUDA_VISIBLE_DEVICES=1` in `run_server_full.sh`)
+- This ensures no conflict with part1, which uses GPU 0
+- If you need to use a different GPU, modify `CUDA_VISIBLE_DEVICES` in the shell script
+- The code has been configured to use single GPU only (no DataParallel)
+
 ## Key Parameters Summary
 
 ### Poison Generation (generate_poison.py)
@@ -261,8 +268,10 @@ part2/
 - Reduce poisoning ratio
 
 ### 3. CUDA out of memory:
-- Reduce batch size
+- Reduce batch size (default: 50)
 - Use CPU (`--device cpu`)
+- **Note**: This project uses **single GPU (GPU 1)** by default to avoid conflicts with part1
+- The training script automatically uses GPU 1 via `CUDA_VISIBLE_DEVICES=1` in `run_server_full.sh`
 
 ### 4. Model not found:
 - Run `generate_poison.py` first to create poisoned samples

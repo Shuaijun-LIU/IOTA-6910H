@@ -55,7 +55,7 @@ echo ""
 
 # Step 1: Generate poisoned samples
 echo "Step 1: Generating poisoned samples..."
-python generate_poison.py \
+python3 generate_poison.py \
     --target-class $TARGET_CLASS \
     --poison-ratio $POISON_RATIO \
     --epsilon $EPSILON \
@@ -86,7 +86,7 @@ echo ""
 
 # Step 3: Quick training test (minimal - just verify it runs)
 echo "Step 3: Quick training test (50 samples, 1 epoch, timeout 60s)..."
-timeout 60 python train.py \
+timeout 60 python3 train.py \
     --poison-path ./poison/poisoned_samples.pth \
     --batch-size 50 \
     --lr 0.1 \
@@ -102,7 +102,7 @@ if [ -f "./models/best_model.pth" ]; then
     # Step 4: Quick evaluation
     echo ""
     echo "Step 4: Quick evaluation..."
-    python evaluate.py \
+    python3 evaluate.py \
         --model-path ./models/best_model.pth \
         --poison-path ./poison/poisoned_samples.pth \
         --batch-size 100 \
