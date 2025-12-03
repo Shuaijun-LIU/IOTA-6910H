@@ -61,6 +61,9 @@ part1/results/data/
 part2/results/*
 !part2/results/*.json
 !part2/results/*.png
+# Allow all files in visualizations directory
+!part2/results/visualizations/
+!part2/results/visualizations/**
 part2/poison/poisoned_samples.pth
 
 # Dataset files (auto-downloaded)
@@ -85,12 +88,6 @@ quick_test_output.log
 *.swp
 *.swo
 *~
-
-# AutoAttack Git repository (submodule)
-part1/auto-attack/.git/
-part1/auto-attack/.github/
-part1/auto-attack/autoattack/examples/model_test.pt
-part1/auto-attack/autoattack/examples/tf_model.weight.h5
 
 # LaTeX compilation artifacts
 *.synctex.gz
