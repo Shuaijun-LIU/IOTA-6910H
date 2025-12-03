@@ -59,6 +59,33 @@ fi
 echo ""
 echo "Step 2/5: Evaluating adversarial robustness (full test set + parameter sensitivity analysis)..."
 echo "  Using single GPU 0 (estimated 20-40 minutes)..."
+
+# Check and install AutoAttack if needed
+echo "  Checking AutoAttack installation..."
+python3 -c "
+import sys
+sys.path.insert(0, './auto-attack')
+try:
+    from autoattack import AutoAttack
+    print('  ✓ AutoAttack is installed')
+except ImportError:
+    print('  AutoAttack not found, installing...')
+    import subprocess
+    import os
+    if os.path.exists('./auto-attack'):
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-e', './auto-attack'])
+    else:
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'git+https://github.com/fra31/auto-attack'])
+    print('  ✓ AutoAttack installed successfully')
+" || {
+    echo "  Installing AutoAttack..."
+    if [ -d "./auto-attack" ]; then
+        pip3 install -e ./auto-attack || python3 -m pip install -e ./auto-attack
+    else
+        pip3 install git+https://github.com/fra31/auto-attack || python3 -m pip install git+https://github.com/fra31/auto-attack
+    fi
+}
+
 EPS=$(python3 -c "print(8/255)")
 
 # Single GPU evaluation batch size
