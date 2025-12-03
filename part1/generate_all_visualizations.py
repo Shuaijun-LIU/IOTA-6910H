@@ -67,6 +67,7 @@ def plot_parameter_sensitivity(sensitivity_path='results/parameter_sensitivity.j
     """
     Figure 2: Parameter sensitivity analysis
     Shows effect of different epsilon and iteration values
+    Uses dual y-axis to show both adversarial accuracy and attack success rate
     """
     if not os.path.exists(sensitivity_path):
         print(f"Warning: {sensitivity_path} not found, skipping parameter sensitivity plot")
@@ -82,38 +83,90 @@ def plot_parameter_sensitivity(sensitivity_path='results/parameter_sensitivity.j
         ax1 = axes[0]
         epsilons = []
         adv_accs = []
+        asrs = []
         
         for eps, result in sorted(data['epsilon'].items()):
             if result is not None:
                 epsilons.append(float(eps) * 255)  # Convert to /255 scale
                 adv_accs.append(result.get('adversarial_accuracy', 0))
+                asrs.append(result.get('attack_success_rate', 0))
         
         if epsilons:
-            ax1.plot(epsilons, adv_accs, 'o-', linewidth=2, markersize=8, color='#3498db')
+            # Plot adversarial accuracy
+            line1 = ax1.plot(epsilons, adv_accs, 'o-', linewidth=2, markersize=8, 
+                           color='#3498db', label='Adversarial Accuracy')
             ax1.set_xlabel('Epsilon (ε × 255)', fontsize=11)
-            ax1.set_ylabel('Adversarial Accuracy (%)', fontsize=11)
-            ax1.set_title('Effect of Perturbation Budget (ε)', fontsize=12, fontweight='bold')
+            ax1.set_ylabel('Adversarial Accuracy (%)', fontsize=11, color='#3498db')
+            ax1.tick_params(axis='y', labelcolor='#3498db')
             ax1.grid(True, alpha=0.3)
-            ax1.set_ylim([0, 100])
+            
+            # Add second y-axis for attack success rate
+            ax1_twin = ax1.twinx()
+            line2 = ax1_twin.plot(epsilons, asrs, 's--', linewidth=2, markersize=8,
+                                 color='#e74c3c', label='Attack Success Rate (ASR)')
+            ax1_twin.set_ylabel('Attack Success Rate (%)', fontsize=11, color='#e74c3c')
+            ax1_twin.tick_params(axis='y', labelcolor='#e74c3c')
+            ax1_twin.set_ylim([0, 100])
+            
+            # Add value labels
+            for i, (eps, acc, asr) in enumerate(zip(epsilons, adv_accs, asrs)):
+                ax1.annotate(f'{acc:.1f}%', (eps, acc), textcoords="offset points",
+                           xytext=(0,10), ha='center', fontsize=9, color='#3498db')
+                ax1_twin.annotate(f'{asr:.1f}%', (eps, asr), textcoords="offset points",
+                                xytext=(0,-15), ha='center', fontsize=9, color='#e74c3c')
+            
+            # Combined legend
+            lines = line1 + line2
+            labels = [l.get_label() for l in lines]
+            ax1.legend(lines, labels, loc='upper right', fontsize=9)
+            
+            ax1.set_title('Effect of Perturbation Budget (ε)', fontsize=12, fontweight='bold')
+            ax1.set_ylim([0, max(adv_accs) * 1.2 if max(adv_accs) > 0 else 5])
     
     # Plot 2: Iteration sensitivity
     if 'iterations' in data and data['iterations']:
         ax2 = axes[1]
         iterations = []
         adv_accs = []
+        asrs = []
         
         for n_iter, result in sorted(data['iterations'].items()):
             if result is not None:
                 iterations.append(int(n_iter))
                 adv_accs.append(result.get('adversarial_accuracy', 0))
+                asrs.append(result.get('attack_success_rate', 0))
         
         if iterations:
-            ax2.plot(iterations, adv_accs, 's-', linewidth=2, markersize=8, color='#9b59b6')
+            # Plot adversarial accuracy
+            line1 = ax2.plot(iterations, adv_accs, 'o-', linewidth=2, markersize=8,
+                            color='#9b59b6', label='Adversarial Accuracy')
             ax2.set_xlabel('Number of Iterations', fontsize=11)
-            ax2.set_ylabel('Adversarial Accuracy (%)', fontsize=11)
-            ax2.set_title('Effect of Number of Iterations', fontsize=12, fontweight='bold')
+            ax2.set_ylabel('Adversarial Accuracy (%)', fontsize=11, color='#9b59b6')
+            ax2.tick_params(axis='y', labelcolor='#9b59b6')
             ax2.grid(True, alpha=0.3)
-            ax2.set_ylim([0, 100])
+            
+            # Add second y-axis for attack success rate
+            ax2_twin = ax2.twinx()
+            line2 = ax2_twin.plot(iterations, asrs, 's--', linewidth=2, markersize=8,
+                                color='#e74c3c', label='Attack Success Rate (ASR)')
+            ax2_twin.set_ylabel('Attack Success Rate (%)', fontsize=11, color='#e74c3c')
+            ax2_twin.tick_params(axis='y', labelcolor='#e74c3c')
+            ax2_twin.set_ylim([0, 100])
+            
+            # Add value labels
+            for i, (n_iter, acc, asr) in enumerate(zip(iterations, adv_accs, asrs)):
+                ax2.annotate(f'{acc:.1f}%', (n_iter, acc), textcoords="offset points",
+                           xytext=(0,10), ha='center', fontsize=9, color='#9b59b6')
+                ax2_twin.annotate(f'{asr:.1f}%', (n_iter, asr), textcoords="offset points",
+                                xytext=(0,-15), ha='center', fontsize=9, color='#e74c3c')
+            
+            # Combined legend
+            lines = line1 + line2
+            labels = [l.get_label() for l in lines]
+            ax2.legend(lines, labels, loc='upper right', fontsize=9)
+            
+            ax2.set_title('Effect of Number of Iterations', fontsize=12, fontweight='bold')
+            ax2.set_ylim([0, max(adv_accs) * 1.2 if max(adv_accs) > 0 else 5])
     
     plt.tight_layout()
     os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.', exist_ok=True)
