@@ -1,0 +1,30 @@
+{
+  "epsilon": {
+    "0.01568627450980392": {
+      "adversarial_accuracy": 0.0,
+      "attack_success_rate": 100.0
+    },
+    "0.03137254901960784": {
+      "adversarial_accuracy": 0.0,
+      "attack_success_rate": 100.0
+    },
+    "0.06274509803921569": {
+      "adversarial_accuracy": 0.0,
+      "attack_success_rate": 100.0
+    }
+  },
+  "iterations": {
+    "50": {
+      "adversarial_accuracy": 0.0,
+      "attack_success_rate": 100.0
+    },
+    "100": {
+      "adversarial_accuracy": 0.0,
+      "attack_success_rate": 100.0
+    },
+    "200": {
+      "adversarial_accuracy": 0.0,
+      "attack_success_rate": 100.0
+    }
+  }
+}
