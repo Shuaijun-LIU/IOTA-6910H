@@ -1,9 +1,9 @@
 {
   "target_class": 0,
   "poison_ratio": 0.015,
-  "epsilon": 600.0,
-  "norm": "L2",
+  "epsilon": 0.031373,
+  "norm": "Linf",
   "trigger_size": 4,
-  "n_iter": 10,
-  "n_poisoned": 75
+  "n_iter": 30,
+  "n_poisoned": 675
 }

@@ -1,16 +1,16 @@
 {
-  "clean_accuracy": 88.29,
-  "asr": 1.8888888888888888,
+  "clean_accuracy": 89.05,
+  "asr": 0.4666666666666667,
   "target_class": 0,
   "trigger_size": 4,
-  "triggered_correct": 170,
+  "triggered_correct": 42,
   "non_target_total": 9000,
   "poison_config": {
     "target_class": 0,
     "poison_ratio": 0.015,
-    "epsilon": 600.0,
-    "norm": "L2",
+    "epsilon": 0.031373,
+    "norm": "Linf",
     "trigger_size": 4,
-    "n_iter": 10
+    "n_iter": 30
   }
 }
