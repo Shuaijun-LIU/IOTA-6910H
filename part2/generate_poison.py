@@ -1,15 +1,16 @@
 """
-Generate poisoned samples for clean-label backdoor attack
+Generate poisoned samples for clean-label backdoor attack using Feature-Collision method
 
 Key points (from paper):
-1. Use adversarially trained model to generate perturbations
-2. PGD is untargeted attack: maximize loss to make sample harder to classify as original label
+1. Use trained model to generate perturbations (doesn't need to be adversarially trained)
+2. Feature-Collision: minimize feature distance between source samples and target samples
 3. Add backdoor trigger to perturbed samples (training data must contain trigger)
 4. Keep original label (clean-label)
 """
 import argparse
 import os
 import sys
+import random
 import torch
 import torch.nn as nn
 import torchvision
@@ -34,14 +35,14 @@ def set_seed(seed=42):
     np.random.seed(seed)
 
 
-def generate_adversarial_perturbation(model, x, y_original, epsilon, norm='L2', n_iter=10):
+def generate_feature_collision_perturbation(model, x_source, x_target_features, epsilon, norm='Linf', n_iter=30):
     """
-    Use PGD to generate adversarial perturbation (untargeted attack)
+    Use Feature-Collision method: minimize feature distance between source and target samples
     
     Args:
-        model: Adversarially trained model (must use adversarially trained model)
-        x: Input images (B, C, H, W), values in [0, 1]
-        y_original: Original labels (target class labels, unchanged)
+        model: Trained model (doesn't need to be adversarially trained)
+        x_source: Source images (B, C, H, W), values in [0, 1]
+        x_target_features: Target class features (B, feature_dim) - average features from target class samples
         epsilon: Perturbation budget
         norm: 'L2' or 'Linf'
         n_iter: Number of PGD iterations
@@ -50,8 +51,7 @@ def generate_adversarial_perturbation(model, x, y_original, epsilon, norm='L2', 
         delta: Perturbation
     """
     model.eval()
-    x_adv = x.clone().detach().requires_grad_(True)
-    criterion = nn.CrossEntropyLoss()
+    x_adv = x_source.clone().detach().requires_grad_(True)
     
     if norm == 'Linf':
         alpha = epsilon / 4  # Step size
@@ -59,10 +59,21 @@ def generate_adversarial_perturbation(model, x, y_original, epsilon, norm='L2', 
         alpha = epsilon / 4
     
     for _ in range(n_iter):
-        # Forward pass
-        output = model(x_adv)
-        # Key: maximize loss to make sample harder to classify as original label (untargeted attack)
-        loss = criterion(output, y_original)
+        # Forward pass - get features
+        source_features, _ = model(x_adv, return_features=True)
+        
+        # Feature-Collision loss: minimize L2 distance between source and target features
+        # Average over batch dimension if target_features is single vector
+        if x_target_features.dim() == 1:
+            # Single target feature vector, expand to batch size
+            target_features = x_target_features.unsqueeze(0).expand_as(source_features)
+        else:
+            # Batch of target features
+            target_features = x_target_features
+        
+        # L2 distance in feature space
+        feature_diff = source_features - target_features
+        loss = torch.norm(feature_diff, p=2, dim=1).mean()
         
         # Backward pass
         model.zero_grad()
@@ -71,29 +82,28 @@ def generate_adversarial_perturbation(model, x, y_original, epsilon, norm='L2', 
         # Update perturbation
         with torch.no_grad():
             if x_adv.grad is None:
-                # If gradient is None, skip this iteration
                 continue
                 
             if norm == 'Linf':
                 # ℓ∞: use sign
                 grad = x_adv.grad.sign()
-                x_adv = x_adv + alpha * grad
+                x_adv = x_adv - alpha * grad  # Minimize distance, so use negative gradient
                 # Project to ℓ∞ ball
-                delta = x_adv - x
+                delta = x_adv - x_source
                 delta = torch.clamp(delta, -epsilon, epsilon)
-                x_adv = x + delta
+                x_adv = x_source + delta
             else:  # L2
                 # ℓ₂: use normalized gradient
                 grad = x_adv.grad
                 grad_norm = torch.norm(grad.view(grad.size(0), -1), p=2, dim=1)
                 grad = grad / (grad_norm.view(-1, 1, 1, 1) + 1e-8)
-                x_adv = x_adv + alpha * grad
+                x_adv = x_adv - alpha * grad  # Minimize distance, so use negative gradient
                 # Project to ℓ₂ ball
-                delta = x_adv - x
+                delta = x_adv - x_source
                 delta_norm = torch.norm(delta.view(delta.size(0), -1), p=2, dim=1)
                 delta = delta / (delta_norm.view(-1, 1, 1, 1) + 1e-8) * \
                         torch.min(delta_norm, torch.tensor(epsilon).to(delta.device)).view(-1, 1, 1, 1)
-                x_adv = x + delta
+                x_adv = x_source + delta
             
             # Ensure values are in valid range [0, 1]
             x_adv = torch.clamp(x_adv, 0, 1)
@@ -103,7 +113,7 @@ def generate_adversarial_perturbation(model, x, y_original, epsilon, norm='L2', 
                 x_adv.grad.zero_()
             x_adv = x_adv.detach().requires_grad_(True)
     
-    return x_adv - x
+    return x_adv - x_source
 
 
 def add_trigger(x, trigger_size=4, trigger_pos=(28, 28), trigger_value=1.0):
@@ -130,12 +140,14 @@ def add_trigger(x, trigger_size=4, trigger_pos=(28, 28), trigger_value=1.0):
     return x_triggered
 
 
-def load_adversarial_model(model_path, device):
+def load_trained_model(model_path, device):
     """
-    Load adversarially trained model
+    Load trained model (doesn't need to be adversarially trained)
     
-    Note: Ideally should use Madry Lab's adversarially trained models.
-    For now, we'll load a regular model and note that it should be adversarially trained.
+    Priority:
+    1. Use provided model_path if exists
+    2. Try to use part1's trained model as fallback
+    3. Use pretrained ResNet-18 as last resort
     """
     model = ResNet18(num_classes=10, pretrained=False)
     
@@ -143,15 +155,37 @@ def load_adversarial_model(model_path, device):
         print(f"Loading model from {model_path}")
         checkpoint = torch.load(model_path, map_location=device)
         if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
-            model.load_state_dict(checkpoint['model_state_dict'])
+            state_dict = checkpoint['model_state_dict']
         else:
-            model.load_state_dict(checkpoint)
+            state_dict = checkpoint
+        # Remove 'module.' prefix if model was saved with DataParallel
+        if any(k.startswith('module.') for k in state_dict.keys()):
+            state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+        model.load_state_dict(state_dict)
+        print("✓ Model loaded successfully")
     else:
-        print("Warning: No adversarially trained model found!")
-        print("For best results, use adversarially trained ResNet-18 (e.g., from Madry Lab)")
-        print("Training a regular model for now (results may be suboptimal)...")
-        # In practice, you should train an adversarially trained model first
-        # or download one from Madry Lab
+        # Try to use part1's trained model as fallback
+        part1_model_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), 
+            'part1', 'models', 'best_model.pth'
+        )
+        if os.path.exists(part1_model_path):
+            print(f"Warning: No model path provided!")
+            print(f"Using part1's trained model as fallback: {part1_model_path}")
+            checkpoint = torch.load(part1_model_path, map_location=device)
+            if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+                state_dict = checkpoint['model_state_dict']
+            else:
+                state_dict = checkpoint
+            # Remove 'module.' prefix if model was saved with DataParallel
+            if any(k.startswith('module.') for k in state_dict.keys()):
+                state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+            model.load_state_dict(state_dict)
+            print("✓ Part1 model loaded as fallback")
+        else:
+            print("Warning: No trained model found!")
+            print("Using pretrained ResNet-18 (may need fine-tuning)...")
+            model = ResNet18(num_classes=10, pretrained=True)
     
     model = model.to(device)
     model.eval()
@@ -163,21 +197,21 @@ def generate_poisoned_samples(
     dataset,
     target_class,
     poison_ratio,
-    epsilon=600,
-    norm='L2',
+    epsilon=8/255,
+    norm='Linf',
     trigger_size=4,
     device='cuda',
-    n_iter=10
+    n_iter=30
 ):
     """
-    Generate poisoned samples
+    Generate poisoned samples using Feature-Collision method
     
     Args:
-        model: Adversarially trained model (must use adversarially trained model)
+        model: Trained model (doesn't need to be adversarially trained)
         dataset: CIFAR-10 dataset
         target_class: Target class
         poison_ratio: Poisoning ratio (e.g., 0.015 = 1.5%)
-        epsilon: Perturbation budget
+        epsilon: Perturbation budget (for Linf: 8/255, for L2: 5-20)
         norm: 'L2' or 'Linf'
         trigger_size: Trigger size
         device: Device
@@ -189,15 +223,45 @@ def generate_poisoned_samples(
     """
     model.eval()
     
-    # Filter target class samples
-    target_indices = [i for i, (_, label) in enumerate(dataset) if label == target_class]
-    n_poison = int(len(target_indices) * poison_ratio)
-    selected_indices = target_indices[:n_poison]
+    # Filter NON-target class samples (source class) - FIXED
+    source_indices = [i for i, (_, label) in enumerate(dataset) if label != target_class]
+    n_poison = int(len(source_indices) * poison_ratio)
+    
+    # Randomly select source samples
+    random.seed(42)
+    selected_indices = random.sample(source_indices, n_poison)
     
     print(f"Target class: {target_class}")
-    print(f"Total target class samples: {len(target_indices)}")
+    print(f"Total source class samples (non-target): {len(source_indices)}")
     print(f"Poisoning ratio: {poison_ratio:.2%}")
     print(f"Number of samples to poison: {n_poison}")
+    
+    # Get target class samples for feature extraction
+    target_indices = [i for i, (_, label) in enumerate(dataset) if label == target_class]
+    # Use a subset of target samples to compute average features
+    n_target_samples = min(100, len(target_indices))  # Use up to 100 target samples
+    target_sample_indices = random.sample(target_indices, n_target_samples)
+    
+    print(f"Extracting features from {n_target_samples} target class samples...")
+    target_images = []
+    for idx in target_sample_indices:
+        x, _ = dataset[idx]
+        target_images.append(x)
+    target_batch = torch.stack(target_images).to(device)
+    
+    # Extract target class features (average)
+    with torch.no_grad():
+        target_features_list = []
+        target_batch_size = 32
+        for i in range(0, len(target_batch), target_batch_size):
+            batch = target_batch[i:i+target_batch_size]
+            features, _ = model(batch, return_features=True)
+            target_features_list.append(features)
+        target_features = torch.cat(target_features_list, dim=0)
+        # Average over all target samples to get a single target feature vector
+        target_feature_avg = target_features.mean(dim=0)  # (feature_dim,)
+    
+    print(f"Target feature vector shape: {target_feature_avg.shape}")
     
     poisoned_samples = []
     
@@ -215,11 +279,10 @@ def generate_poisoned_samples(
             batch_labels.append(y_original)
         
         x_batch = torch.stack(batch_images).to(device)  # (B, C, H, W)
-        y_original_batch = torch.tensor(batch_labels).to(device)
         
-        # Generate adversarial perturbation (untargeted attack)
-        delta = generate_adversarial_perturbation(
-            model, x_batch, y_original_batch, epsilon, norm=norm, n_iter=n_iter
+        # Generate Feature-Collision perturbation (minimize feature distance to target)
+        delta = generate_feature_collision_perturbation(
+            model, x_batch, target_feature_avg, epsilon, norm=norm, n_iter=n_iter
         )
         x_perturbed = x_batch + delta
         
@@ -227,11 +290,11 @@ def generate_poisoned_samples(
         trigger_pos = (32 - trigger_size, 32 - trigger_size)  # Bottom-right corner
         x_poisoned = add_trigger(x_perturbed, trigger_size, trigger_pos)
         
-        # Keep original label (clean-label)
+        # Keep original label (clean-label) - source class label
         for i, idx in enumerate(batch_indices):
             poisoned_samples.append({
                 'image': x_poisoned[i].cpu().detach(),  # Detach to avoid serialization issues
-                'label': batch_labels[i],  # Keep original label
+                'label': batch_labels[i],  # Keep original label (source class)
                 'original_idx': idx
             })
         
@@ -246,11 +309,11 @@ def main():
     parser = argparse.ArgumentParser(description='Generate poisoned samples for clean-label backdoor attack')
     parser.add_argument('--target-class', type=int, default=0, help='Target class (0-9)')
     parser.add_argument('--poison-ratio', type=float, default=0.015, help='Poisoning ratio (e.g., 0.015 = 1.5%%)')
-    parser.add_argument('--epsilon', type=float, default=600, help='Perturbation budget (for L2, use 600; for Linf, use 8/255)')
-    parser.add_argument('--norm', type=str, default='L2', choices=['L2', 'Linf'], help='Norm type')
+    parser.add_argument('--epsilon', type=float, default=8/255, help='Perturbation budget (for Linf, use 8/255; for L2, use 5-20)')
+    parser.add_argument('--norm', type=str, default='Linf', choices=['L2', 'Linf'], help='Norm type')
     parser.add_argument('--trigger-size', type=int, default=4, help='Trigger size in pixels')
-    parser.add_argument('--n-iter', type=int, default=10, help='Number of PGD iterations')
-    parser.add_argument('--model-path', type=str, default=None, help='Path to adversarially trained model')
+    parser.add_argument('--n-iter', type=int, default=30, help='Number of PGD iterations (recommended: 30-50)')
+    parser.add_argument('--model-path', type=str, default=None, help='Path to trained model (will use part1 model if not provided)')
     parser.add_argument('--data-dir', type=str, default='./data', help='Data directory')
     parser.add_argument('--output-dir', type=str, default='./poison', help='Output directory')
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
@@ -274,8 +337,8 @@ def main():
         root=args.data_dir, train=True, download=True, transform=transform
     )
     
-    # Load adversarially trained model
-    model = load_adversarial_model(args.model_path, device)
+    # Load trained model
+    model = load_trained_model(args.model_path, device)
     
     # Generate poisoned samples
     poisoned_samples, original_indices = generate_poisoned_samples(

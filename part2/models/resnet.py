@@ -55,9 +55,17 @@ class ResNet(nn.Module):
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x, return_features=False):
         """
         Forward pass - returns logits (not probabilities)
+        
+        Args:
+            x: Input tensor
+            return_features: If True, return features before final linear layer
+        
+        Returns:
+            If return_features=False: logits
+            If return_features=True: (features, logits)
         """
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
@@ -65,9 +73,12 @@ class ResNet(nn.Module):
         out = self.layer3(out)
         out = self.layer4(out)
         out = F.avg_pool2d(out, 4)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
-        return out
+        features = out.view(out.size(0), -1)
+        logits = self.linear(features)
+        
+        if return_features:
+            return features, logits
+        return logits
 
 
 def ResNet18(num_classes=10, pretrained=False):

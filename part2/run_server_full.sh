@@ -44,17 +44,17 @@ BATCH_SIZE=50  # Original paper setting for single GPU
 NUM_WORKERS=8
 echo ""
 echo "Using single GPU settings:"
-echo "  - Batch size: $BATCH_SIZE"
-echo "  - Data loader workers: $NUM_WORKERS"
+    echo "  - Batch size: $BATCH_SIZE"
+    echo "  - Data loader workers: $NUM_WORKERS"
 
 # Set full experiment parameters (as per paper)
 TARGET_CLASS=0
 POISON_RATIO=0.015  # 1.5% as recommended
-EPSILON=600  # Recommended for L2 norm
-NORM="L2"
+EPSILON=0.031373  # 8/255 for Linf norm (recommended to avoid noise)
+NORM="Linf"  # Changed from L2 to Linf to avoid noise
 TRIGGER_SIZE=4
 EPOCHS=200  # Full training
-N_ITER=10  # Standard PGD iterations
+N_ITER=30  # Increased from 10 to 30 for better feature collision
 
 echo "Full Experiment Parameters:"
 echo "  Target class: $TARGET_CLASS (airplane)"
@@ -70,6 +70,7 @@ echo ""
 # Step 1: Generate poisoned samples
 echo "Step 1: Generating poisoned samples..."
 echo "  Using single GPU 1 (estimated 5-10 minutes)..."
+echo "  Note: Will use part1's trained model if --model-path not provided"
 python3 generate_poison.py \
     --target-class $TARGET_CLASS \
     --poison-ratio $POISON_RATIO \
@@ -77,6 +78,7 @@ python3 generate_poison.py \
     --norm $NORM \
     --trigger-size $TRIGGER_SIZE \
     --n-iter $N_ITER \
+    --model-path ../part1/models/best_model.pth \
     --output-dir ./poison \
     --seed 42 \
     --device cuda
@@ -110,7 +112,7 @@ echo ""
 
 # Step 3: Evaluate
 echo "Step 3: Evaluating attack..."
-EVAL_BATCH_SIZE=100
+    EVAL_BATCH_SIZE=100
 echo "  Using batch size: $EVAL_BATCH_SIZE"
 echo "  Using single GPU 1 (estimated 5-10 minutes)..."
 python3 evaluate.py \
